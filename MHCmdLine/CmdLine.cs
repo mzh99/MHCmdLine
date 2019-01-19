@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace OCSS.Util.CmdLine {
@@ -12,46 +13,46 @@ namespace OCSS.Util.CmdLine {
    ///   Flags are case-sensitive.
    ///   Extraneous flags from command line that don't match the accepted list are ignored.
    /// </remarks>
-   /// <example>See sample in comment below</example>
-   ///
-   /*
-      private CmdLine ProcessParms(IEnumerable<CmdFlag> flagset, string[] args) {
-         CmdLine cmd = new CmdLine();  // take default leading chars of - (dash) and / (forward slash)
-         foreach (var f in flagset) {
-            cmd.AddFlag(f.Flag, f.IsRequired);
-         }
-         try {
-            cmd.ProcessCmdLine(args);  // parse the command line
-            return cmd;
-         }
-         catch (ArgumentException e) {
-            return null;
-         }
-      }
-   }
-   */
+   /// <example>See github samples</example>
+   /// string errmsg = "The following required command line switches missing: " + string.Join(", ", GetMissingSwitchesRequired().ToArray());
+
    public class CmdLine {
 
-      public static string LEADING_FLAGS = @"-/";
+      public static readonly char[] DEFAULT_FLAG_PREFIX = new char[] { '-', '/' };
+      /// <summary>List of characters recognized as a valid prefix for parameters</summary>
+      public readonly char[] LeadingList;
+      public int CmdCnt { get { return flagList.Count; } }
 
-      public readonly string LeadingList;
-      public string ExeName { get; private set; }
-      public int CmdCnt { get { return pFlagList.Count; } }
+      private readonly Dictionary<string, CmdFlag> flagList;
 
-      private List<CmdFlag> pFlagList;
-
-      public CmdLine(): this(LEADING_FLAGS) { }
+#region Constructors
+      /// <summary>Constructor using default prefix list (dash and forward slash)</summary>
+      public CmdLine(): this(DEFAULT_FLAG_PREFIX) { }
 
       /// <summary>Constructor</summary>
       /// <param name="leadChars">String containing the leading characters to allow</param>
-      public CmdLine(string leadChars) {
+      public CmdLine(char[] leadChars): this(leadChars, null) { }
+
+      /// <summary>Constructor using default prefix list (dash and forward slash) and supplied flags</summary>
+      /// <param name="flags">list of flags recognized as parameters</param>
+      public CmdLine(IEnumerable<CmdFlag> flags): this(DEFAULT_FLAG_PREFIX, flags) { }
+
+      /// <summary>Constructor</summary>
+      /// <param name="leadChars">valid leading characters for parameters</param>
+      /// <param name="flags">list of flags recognized as parameters</param>
+      public CmdLine(char[] leadChars, IEnumerable<CmdFlag> flags) {
          LeadingList = leadChars;
-         ExeName = string.Empty;
-         pFlagList = new List<CmdFlag>();
+         flagList = new Dictionary<string, CmdFlag>();
+         if (flags != null) {
+            foreach (var flag in flags) {
+               AddFlag(flag);
+            }
+         }
       }
+#endregion
 
       /// <summary>Adds one command line flag to allowed list</summary>
-      /// <param name="flag">String containing the characters for a command line option</param>
+      /// <param name="flag">String containing the leading characters for a command line parameter</param>
       /// <param name="isReq">Whether the command line option is required</param>
       public void AddFlag(string flag, bool isReq = true) {
          AddFlag(new CmdFlag(flag, isReq));
@@ -59,39 +60,50 @@ namespace OCSS.Util.CmdLine {
 
       /// <param name="flag">The Command Flag instance to add</param>
       public void AddFlag(CmdFlag flag) {
-         if (pFlagList.Contains(flag))
-            throw new ArgumentException("Duplicate flag: " + flag.Flag);
-         pFlagList.Add(flag);
+         flagList.Add(flag.Flag, flag);
+      }
+
+      public void AddFlags(IEnumerable<CmdFlag> flags) {
+         foreach (var flag in flags) {
+            AddFlag(flag);
+         }
       }
 
       public bool ParmExists(string flag) {
-         return pFlagList.Exists(f => f.Flag == flag && f.ExistsOnInput);
+         var ret = false;
+         if (flagList.ContainsKey(flag)) {
+            ret = flagList[flag].ExistsOnInput;
+         }
+         return ret;
       }
 
       public string GetParm(string flag) {
-         var ndx = pFlagList.FindIndex(f => f.Flag == flag);
-         return (ndx >= 0) ? pFlagList[ndx].Parm : string.Empty;
+         return (flagList.ContainsKey(flag)) ? flagList[flag].Parm : string.Empty;
       }
 
-      public void ProcessCmdLine(IEnumerable<string> args) {
+      /// <summary>Parses command-line arguments and matches them up with flags</summary>
+      /// <param name="args"></param>
+      /// <returns>True if all required flags are matched up with arguments. Otherwise, false.</returns>
+      public bool ProcessCmdLine(IEnumerable<string> args) {
          // set the parameters for each flag
          foreach (string arg in args) {
-            if (LeadingList.Contains(arg.Substring(0, 1))) {
-               string oneArg = arg.Substring(1);   // Ignore leading flag
-               foreach (CmdFlag cf in pFlagList) {
-                  if (oneArg.StartsWith(cf.Flag)) {
-                     cf.Parm = oneArg.Substring(cf.Flag.Length);
-                     cf.ExistsOnInput = true;
-                  }
+            // does first character match
+            if (LeadingList.Contains(arg[0])) {
+               string oneArg = arg.Substring(1);   // Ignore leading flag and get the rest of the parameter
+               var match = flagList.Where((k, v) => oneArg.StartsWith(k.Key)).FirstOrDefault().Value;
+               if (match != null) {
+                  match.Parm = oneArg.Substring(match.Flag.Length);
+                  match.ExistsOnInput = true;
                }
             }
          }
          // Check required paramters and throw an exception is any required flags are missing
-         foreach (CmdFlag cf in pFlagList) {
-            if (cf.IsRequired && cf.ExistsOnInput == false) {
-               throw new ArgumentException("Required command line parameter " + cf.Flag + " is missing.");
-            }
-         }
+         var flagsMissing = GetMissingSwitchesRequired().ToArray();
+         return (flagsMissing.Length == 0);
+      }
+
+      public IEnumerable<string> GetMissingSwitchesRequired() {
+         return flagList.Where((k, v) => k.Value.IsRequired && k.Value.ExistsOnInput == false).Select(r => r.Value.Flag);
       }
 
    }
@@ -99,7 +111,6 @@ namespace OCSS.Util.CmdLine {
    public class CmdFlag: IEquatable<CmdFlag> {
       public readonly string Flag;
       public readonly bool IsRequired;
-
       public string Parm { get; set; }
       public bool ExistsOnInput { get; internal set; }
 
@@ -115,4 +126,5 @@ namespace OCSS.Util.CmdLine {
          return (Flag == flag.Flag);
       }
    }
+
 }
