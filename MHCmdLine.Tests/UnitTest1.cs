@@ -1,12 +1,13 @@
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OCSS.Util.CmdLine;
 
 namespace MHCmdLine.Tests {
 
    [TestClass]
-   public class UnitTest1 {
+   public class CmdLineTests {
       [TestMethod]
-      public void CmdWithoutOptPasses() {
+      public void WithoutOptionalFlagIsSuccessful() {
          CmdFlag[] allowedFlags = { new CmdFlag("i", true), new CmdFlag("o", true), new CmdFlag("v", false) };
          CmdLine cmd = new CmdLine(allowedFlags);
          string[] args = { @"-ie:\data\dl\test.txt", @"-oe:\data\dl\test.out" };
@@ -22,7 +23,18 @@ namespace MHCmdLine.Tests {
       }
 
       [TestMethod]
-      public void CmdWithoutWithMissingReqFails() {
+      public void MissingSwitchesWhenAllSuppliedIsCorrect() {
+         CmdFlag[] allowedFlags = { new CmdFlag("i", true), new CmdFlag("o", true), new CmdFlag("v", false) };
+         CmdLine cmd = new CmdLine(allowedFlags);
+         string[] args = { @"-ie:\data\dl\test.txt", @"-oe:\data\dl\test.out" };
+         bool success = cmd.ProcessCmdLine(args);  // parse the command line
+         Assert.IsTrue(success, "success is false");
+         var switches = cmd.GetMissingSwitchesRequired().ToArray();
+         Assert.AreEqual(0, switches.Length, "switches has elements");
+      }
+
+      [TestMethod]
+      public void WithoutRequiredFlagsFails() {
          CmdFlag[] allowedFlags = { new CmdFlag("i", true), new CmdFlag("o", true), new CmdFlag("v", false) };
          CmdLine cmd = new CmdLine(allowedFlags);
          string[] args = { @"-oe:\data\dl\test.out" };

@@ -4,20 +4,27 @@ using System.Collections.Generic;
 
 namespace OCSS.Util.CmdLine {
 
-   /// <summary>Class for testing/handling Command-line parameters</summary>
+   /// <summary>Class for parsing, handling, and processing command-line parameters using conventions below.</summary>
    /// <remarks>
-   ///   Assumes a space delimited (Windows) style command line.
-   ///   Assumes convention of dashes or similar for switches followed immediately by the associated parameter
-   ///      ex) /fc:\temp\OutputFolder
-   ///   To pass spaces in an option (eg. long file names), the option must be enclosed in quotes.
-   ///   Flags are case-sensitive.
-   ///   Extraneous flags from command line that don't match the accepted list are ignored.
+   ///   Assumptions and Conventions:
+   ///      1) a space delimited (Windows) style command line.
+   ///      2) a non-positional model for any command-line. Flags can be put anywhere by the user.
+   ///      3) a convention of dashes (or other user-defined) for switches followed immediately by the associated parameter.
+   ///         ex) /fc:\temp\OutputFolder
+   ///      4) Flags are case-sensitive (-m is different than -M).
+   ///
+   ///   Other Notes:
+   ///      When providing command line values with spaces (eg. long file names), the entire option (leading flag + switch + parameter) must be enclosed in quotes.
+   ///         ex) "/fc:\A path with spaces\output.txt"
+   ///      Extraneous flags passed on command line (that don't match the accepted list) are ignored.
    /// </remarks>
    /// <example>See github samples</example>
-   /// string errmsg = "The following required command line switches missing: " + string.Join(", ", GetMissingSwitchesRequired().ToArray());
 
    public class CmdLine {
 
+      /// <summary>Default preamble for error message in GetMissingSwitchesAsErrorMessage()</summary>
+      public const string DEFAULT_MISSING_SWITCH_PREAMBLE = "Missing required command line switches: ";
+      /// <summary>Default prefixes for flags</summary>
       public static readonly char[] DEFAULT_FLAG_PREFIX = new char[] { '-', '/' };
       /// <summary>List of characters recognized as a valid prefix for parameters</summary>
       public readonly char[] LeadingList;
@@ -104,6 +111,11 @@ namespace OCSS.Util.CmdLine {
 
       public IEnumerable<string> GetMissingSwitchesRequired() {
          return flagList.Where((k, v) => k.Value.IsRequired && k.Value.ExistsOnInput == false).Select(r => r.Value.Flag);
+      }
+
+      public string GetMissingSwitchesAsErrorMessage(string msgPreamble = DEFAULT_MISSING_SWITCH_PREAMBLE, string switchSeparator = ", ") {
+         var switches = GetMissingSwitchesRequired().ToArray();
+         return (switches.Length == 0) ? string.Empty : msgPreamble + string.Join(switchSeparator, switches);
       }
 
    }
