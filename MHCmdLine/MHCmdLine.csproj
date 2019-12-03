@@ -8,15 +8,15 @@
      <Company>OC Software Solutions</Company>
      <Description>Command-line handling and parsing</Description>
      <PackageTags>OCSS Utility Command Line</PackageTags>
-     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
      <Copyright>© 2019, OC Software Solutions</Copyright>
      <PackageLicenseUrl></PackageLicenseUrl>
      <PackageLicenseExpression>MIT</PackageLicenseExpression>
      <PackageProjectUrl>https://github.com/mzh99/MHCmdLine</PackageProjectUrl>
      <RepositoryUrl>https://github.com/mzh99/MHCmdLine.git</RepositoryUrl>
      <RepositoryType>git</RepositoryType>
-     <AssemblyVersion>1.1.0.0</AssemblyVersion>
-     <Version>1.1.1</Version>
+     <AssemblyVersion>1.2.0.0</AssemblyVersion>
+     <Version>1.2</Version>
   </PropertyGroup>
 
 </Project>

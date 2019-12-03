@@ -7,16 +7,17 @@ namespace OCSS.Util.CmdLine {
    /// <summary>Class for parsing, handling, and processing command-line parameters using conventions below.</summary>
    /// <remarks>
    ///   Assumptions and Conventions:
-   ///      1) a space delimited (Windows) style command line.
-   ///      2) a non-positional model for any command-line. Flags can be put anywhere by the user.
-   ///      3) a convention of dashes (or other user-defined) for switches followed immediately by the associated parameter.
+   ///      1) a space delimited (Windows) style command-line.
+   ///      2) Flags are not positional and can be used anywhere in the command-line.
+   ///      3) a convention of dashes (or other user-defined characters) for switches followed immediately by the associated parameter.
    ///         ex) /fc:\temp\OutputFolder
    ///      4) Flags are case-sensitive (-m is different than -M).
    ///
    ///   Other Notes:
    ///      When providing command line values with spaces (eg. long file names), the entire option (leading flag + switch + parameter) must be enclosed in quotes.
    ///         ex) "/fc:\A path with spaces\output.txt"
-   ///      Extraneous flags passed on command line (that don't match the accepted list) are ignored.
+   ///      Command-line parameters without switches are assumed to be positional and can be obtained with a call to GetPositionalParms().
+   ///      Command-line parameters starting with a leading character that don't match one of the allowed flags can be obtained with a call to GetExtraneousParms().
    /// </remarks>
    /// <example>See github samples</example>
 
@@ -30,6 +31,8 @@ namespace OCSS.Util.CmdLine {
       public readonly char[] LeadingList;
       public int CmdCnt { get { return flagList.Count; } }
 
+      private readonly List<string> positionals = new List<string>();
+      private readonly List<string> extraneousSwitches = new List<string>();
       private readonly Dictionary<string, CmdFlag> flagList;
 
 #region Constructors
@@ -92,21 +95,37 @@ namespace OCSS.Util.CmdLine {
       /// <param name="args"></param>
       /// <returns>True if all required flags are matched up with arguments. Otherwise, false.</returns>
       public bool ProcessCmdLine(IEnumerable<string> args) {
+         positionals.Clear();
+         extraneousSwitches.Clear();
          // set the parameters for each flag
          foreach (string arg in args) {
             // does first character match
             if (LeadingList.Contains(arg[0])) {
                string oneArg = arg.Substring(1);   // Ignore leading flag and get the rest of the parameter
                var match = flagList.Where((k, v) => oneArg.StartsWith(k.Key)).FirstOrDefault().Value;
-               if (match != null) {
+               if (match == null) {
+                  extraneousSwitches.Add(oneArg);
+               }
+               else {
                   match.Parm = oneArg.Substring(match.Flag.Length);
                   match.ExistsOnInput = true;
                }
+            }
+            else {
+               positionals.Add(arg);
             }
          }
          // Check required paramters and throw an exception is any required flags are missing
          var flagsMissing = GetMissingSwitchesRequired().ToArray();
          return (flagsMissing.Length == 0);
+      }
+
+      public IEnumerable<string> GetPositionalParms() {
+         return positionals.AsReadOnly();
+      }
+
+      public IEnumerable<string> GetExtraneousParms() {
+         return extraneousSwitches.AsReadOnly();
       }
 
       public IEnumerable<string> GetMissingSwitchesRequired() {
